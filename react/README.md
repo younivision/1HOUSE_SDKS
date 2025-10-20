@@ -55,7 +55,7 @@ function App() {
   return (
     <div style={{ height: '600px' }}>
       <LiveChat
-        serverUrl="ws://localhost:8080"
+        apiKey="your-api-key"
         userId="user123"
         username="JohnDoe"
       />
@@ -106,7 +106,7 @@ function App() {
       
       <main style={{ flex: 1 }}>
         <LiveChat
-          serverUrl="wss://your-production-server.com"
+          apiKey="your-api-key"
           userId="user-123"
           username="JohnDoe"
           roomId="gaming-lounge"
@@ -145,7 +145,7 @@ function App() {
       
       <aside className="chat-sidebar">
         <LiveChat
-          serverUrl="wss://chat.yourapp.com"
+          apiKey="your-api-key"
           userId={currentUser.id}
           username={currentUser.name}
           avatar={currentUser.avatar}
@@ -200,7 +200,7 @@ function ChatPage() {
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
       <LiveChat
-        serverUrl="wss://chat.yourapp.com"
+        apiKey="your-api-key"
         userId="user123"
         username="ChatUser"
         roomId="general"
@@ -231,7 +231,7 @@ function ChatPage() {
   return (
     <div style={{ height: '100vh' }}>
       <LiveChat
-        serverUrl={`wss://chat.yourapp.com?token=${user.token}`}
+        apiKey={user.token}
         userId={user.id}
         username={user.displayName}
         avatar={user.photoURL}
@@ -249,7 +249,7 @@ export default ChatPage;
 
 | Prop | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `serverUrl` | string | ✅ | - | WebSocket server URL (ws:// or wss://) |
+| `apiKey` | string | ✅ | - | API key for authentication |
 | `userId` | string | ✅ | - | Unique user identifier |
 | `username` | string | ✅ | - | Display name for the user |
 | `roomId` | string | ❌ | 'default' | Chat room identifier |
@@ -260,6 +260,8 @@ export default ChatPage;
 | `onDisconnect` | () => void | ❌ | - | Callback when WebSocket disconnects |
 | `onMessage` | (message: Message) => void | ❌ | - | Callback for new messages |
 | `onError` | (error: Error) => void | ❌ | - | Callback for errors |
+
+> **Note:** The server URL is automatically configured to connect to `https://prod.chat-service.1houseglobalservices.com`. You don't need to specify a server URL.
 
 ## 🎨 Themes
 
@@ -494,7 +496,7 @@ function CustomChat() {
   const [messageText, setMessageText] = useState('');
   
   const { sendMessage, disconnect, startTyping, stopTyping } = useWebSocket({
-    serverUrl: 'ws://localhost:8080',
+    apiKey: 'your-api-key',
     userId: 'user123',
     username: 'JohnDoe',
     roomId: 'custom-room',
@@ -639,7 +641,7 @@ function MultiRoomChat() {
       
       <LiveChat
         key={activeRoom} // Force remount on room change
-        serverUrl="ws://localhost:8080"
+        apiKey="your-api-key"
         userId="user123"
         username="JohnDoe"
         roomId={activeRoom}
@@ -679,7 +681,7 @@ function ChatWithNotifications() {
 
   return (
     <LiveChat
-      serverUrl="ws://localhost:8080"
+      apiKey="your-api-key"
       userId="user123"
       username="JohnDoe"
       onMessage={handleMessage}
@@ -761,30 +763,14 @@ import * as Chat from '@1house/chat-react';
 **Problem:** Cannot connect to WebSocket server
 
 **Solutions:**
-1. Verify server URL format (`ws://` or `wss://`)
-2. Check that backend server is running
-3. Verify CORS settings on server
-4. Check browser console for errors
-5. Test WebSocket connection:
+1. Verify your API key is correct
+2. Check that you have network connectivity
+3. Check browser console for errors
+4. Ensure the 1HOUSE chat service is operational
 
-```javascript
-const testConnection = () => {
-  const ws = new WebSocket('ws://localhost:8080');
-  ws.onopen = () => console.log('✅ Connection successful');
-  ws.onerror = (e) => console.error('❌ Connection failed:', e);
-  ws.onclose = () => console.log('Connection closed');
-};
-testConnection();
-```
+### Connection Security
 
-### Mixed Content Errors
-
-**Problem:** `Mixed Content: The page at 'https://...' was loaded over HTTPS, but attempted to connect to the insecure WebSocket endpoint 'ws://...'`
-
-**Solution:** Use WSS (secure WebSocket) in production:
-```jsx
-<LiveChat serverUrl="wss://your-domain.com" {...props} />
-```
+**Note:** The SDK automatically uses secure WebSocket (WSS) connections to the 1HOUSE production servers. All connections are encrypted and secure by default.
 
 ### CORS Errors
 
@@ -855,14 +841,13 @@ npm start
 
 ## 🔐 Security Best Practices
 
-### 1. Use WSS in Production
+### 1. Secure API Keys
 
 ```jsx
-const serverUrl = process.env.NODE_ENV === 'production'
-  ? 'wss://secure-domain.com'
-  : 'ws://localhost:8080';
+// Store API keys securely
+const apiKey = process.env.REACT_APP_CHAT_API_KEY;
 
-<LiveChat serverUrl={serverUrl} {...props} />
+<LiveChat apiKey={apiKey} {...props} />
 ```
 
 ### 2. Sanitize User Input
@@ -880,10 +865,10 @@ const sanitizeMessage = (text) => {
 ### 3. Implement Authentication
 
 ```jsx
-const token = localStorage.getItem('auth_token');
+const apiKey = localStorage.getItem('auth_token');
 
 <LiveChat
-  serverUrl={`wss://chat.app.com?token=${token}`}
+  apiKey={apiKey}
   userId={user.id}
   username={user.name}
 />

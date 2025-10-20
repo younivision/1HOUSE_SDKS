@@ -61,7 +61,7 @@ export default function App() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <LiveChat
-        serverUrl="ws://your-server.com"
+        apiKey="your-api-key"
         userId="user123"
         username="JohnDoe"
       />
@@ -97,7 +97,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <LiveChat
-        serverUrl="wss://your-production-server.com"
+        apiKey="your-api-key"
         userId="user-123"
         username="JohnDoe"
         roomId="gaming-lounge"
@@ -138,7 +138,7 @@ export default function GameScreen() {
       
       <View style={styles.chatArea}>
         <LiveChat
-          serverUrl="ws://localhost:8080"
+          apiKey="your-api-key"
           userId={user.id}
           username={user.name}
           avatar={user.avatar}
@@ -180,7 +180,7 @@ export default function ChatScreen() {
 
   return (
     <LiveChat
-      serverUrl="wss://chat.yourapp.com"
+      apiKey="your-api-key"
       userId={user.id}
       username={user.displayName}
       avatar={user.photoURL}
@@ -195,7 +195,7 @@ export default function ChatScreen() {
 
 | Prop | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `serverUrl` | string | ✅ | - | WebSocket server URL (ws:// or wss://) |
+| `apiKey` | string | ✅ | - | API key for authentication |
 | `userId` | string | ✅ | - | Unique user identifier |
 | `username` | string | ✅ | - | Display name for the user |
 | `roomId` | string | ❌ | 'default' | Chat room identifier |
@@ -205,6 +205,8 @@ export default function ChatScreen() {
 | `onDisconnect` | () => void | ❌ | - | Callback when disconnected |
 | `onMessage` | (message: Message) => void | ❌ | - | Callback for new messages |
 | `onError` | (error: Error) => void | ❌ | - | Callback for errors |
+
+> **Note:** The server URL is automatically configured to connect to `https://prod.chat-service.1houseglobalservices.com`. You don't need to specify a server URL.
 
 ## 🎨 Themes
 
@@ -343,7 +345,7 @@ function CustomChat() {
   const [messageText, setMessageText] = useState('');
   
   const { sendMessage, disconnect } = useWebSocket({
-    serverUrl: 'ws://your-server.com',
+    apiKey: 'your-api-key',
     userId: 'user123',
     username: 'JohnDoe',
     roomId: 'custom-room',
@@ -452,30 +454,14 @@ Fonts are automatically loaded when the component mounts.
 
 ## 📱 Platform-Specific Configuration
 
-### iOS Simulator
-```javascript
-serverUrl: "ws://localhost:8080"
-```
+The SDK automatically connects to the 1HOUSE production chat service at `https://prod.chat-service.1houseglobalservices.com`. This works seamlessly across all platforms:
 
-### Android Emulator
-```javascript
-serverUrl: "ws://10.0.2.2:8080"
-```
+- **iOS Simulator** - Automatic connection
+- **Android Emulator** - Automatic connection
+- **Physical Devices** - Automatic connection
+- **Production** - Secure WSS connection by default
 
-### Physical Devices
-```javascript
-// Find your computer's local IP
-// macOS: ipconfig getifaddr en0
-// Windows: ipconfig
-// Linux: hostname -I
-
-serverUrl: "ws://192.168.1.XXX:8080"
-```
-
-### Production
-```javascript
-serverUrl: "wss://your-domain.com"
-```
+No platform-specific URL configuration is needed!
 
 ## 🐛 Troubleshooting
 
@@ -484,26 +470,11 @@ serverUrl: "wss://your-domain.com"
 **Problem:** Can't connect to WebSocket server
 
 **Solutions:**
-1. Verify server URL format (`ws://` or `wss://`)
-2. Check that backend server is running
-3. For iOS simulator, use `localhost`
-4. For Android emulator, use `10.0.2.2`
-5. For physical devices, use your computer's local IP
-6. Check firewall settings
-7. Ensure CORS is properly configured on server
-
-**Test connection:**
-```javascript
-const testConnection = async () => {
-  try {
-    const ws = new WebSocket('ws://localhost:8080');
-    ws.onopen = () => console.log('✅ Connection successful');
-    ws.onerror = (e) => console.error('❌ Connection failed:', e);
-  } catch (error) {
-    console.error('❌ Error:', error);
-  }
-};
-```
+1. Verify your API key is correct
+2. Check that you have network connectivity
+3. Check console for errors
+4. Ensure the 1HOUSE chat service is operational
+5. Verify your device/emulator has internet access
 
 ### Image Caching Not Working
 
@@ -616,9 +587,12 @@ npx expo start -c
 
 ## 🔐 Security Best Practices
 
-1. **Use WSS in Production**
+1. **Secure API Keys**
    ```javascript
-   serverUrl: "wss://secure-domain.com"
+   // Store API keys securely
+   import * as SecureStore from 'expo-secure-store';
+   
+   const apiKey = await SecureStore.getItemAsync('chat_api_key');
    ```
 
 2. **Validate User Input**
@@ -628,11 +602,9 @@ npx expo start -c
    };
    ```
 
-3. **Implement Authentication**
-   ```javascript
-   // Add API key or JWT token
-   serverUrl: "wss://domain.com?token=user-jwt-token"
-   ```
+3. **Connection Security**
+   - The SDK automatically uses secure WebSocket (WSS) connections
+   - All connections are encrypted and secure by default
 
 4. **Handle Sensitive Data**
    - Never log user credentials

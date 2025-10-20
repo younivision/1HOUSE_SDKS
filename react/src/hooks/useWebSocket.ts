@@ -2,6 +2,9 @@ import { useEffect, useRef, useCallback } from 'react';
 import { MessageTypeEnum, WebSocketMessage, LiveChatProps } from '../types';
 import { useChatStore } from '../store';
 
+// Hardcoded server URL
+const SERVER_URL = 'https://prod.chat-service.1houseglobalservices.com';
+
 export function useWebSocket(props: LiveChatProps) {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<NodeJS.Timeout>();
@@ -24,7 +27,7 @@ export function useWebSocket(props: LiveChatProps) {
 
     try {
       // Add API key as query parameter
-      const url = new URL(props.serverUrl);
+      const url = new URL(SERVER_URL);
       url.searchParams.set('apiKey', props.apiKey);
       ws.current = new WebSocket(url.toString());
 
