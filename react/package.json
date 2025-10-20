@@ -1,23 +1,60 @@
 {
-  "name": "@1house/chat-react",
-  "version": "1.0.0",
-  "description": "React embeddable chat component for 1HOUSE LiveChat",
-  "main": "dist/index.js",
+  "name": "@1houseglobal/chat-react",
+  "version": "1.0.2",
+  "description": "React embeddable chat component for 1 HOUSE Global",
+  "main": "dist/index.umd.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "fonts",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.umd.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./style.css": "./dist/style.css",
+    "./fonts.css": "./dist/fonts.css"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build",
+    "publish:npm": "npm publish --access public",
+    "publish:dry": "npm publish --dry-run"
   },
   "keywords": [
     "chat",
     "react",
     "websocket",
-    "embeddable"
+    "embeddable",
+    "realtime",
+    "messaging",
+    "twitch",
+    "livechat",
+    "chat-component",
+    "react-component"
   ],
-  "author": "1HOUSE",
+  "author": {
+    "name": "Younivision Development Group",
+    "email": "hello@younivision.chat",
+    "url": "https://github.com/1house"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/younivision/1HOUSE_SDKS.git",
+    "directory": "1HOUSE_LIVECHAT_REACT"
+  },
+  "bugs": {
+    "url": "https://github.com/younivision/1HOUSE_SDKS/issues"
+  },
+  "homepage": "https://github.com/younivision/1HOUSE_SDKS#readme",
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
@@ -37,6 +74,9 @@
     "typescript": "^5.2.2",
     "vite": "^5.0.2",
     "vite-plugin-dts": "^3.6.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
-
