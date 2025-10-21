@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="log" style="font-family: monospace; white-space: pre-wrap;"></div>
+    <script>
+        const log = (msg) => {
+            console.log(msg);
+            document.getElementById('log').innerHTML += msg + '\n';
+        };
+
+        const ws = new WebSocket('ws://localhost:8080/?apiKey=lc_3e41d2f1276acdb315f02ee60f9fc013b0da996b43942c984be6dbc7836327cb');
+
+        ws.onopen = () => {
+            log('✅ WebSocket connected');
+            const connectMsg = {
+                type: 'CONNECT',
+                payload: {
+                    userId: 'browser_test',
+                    username: 'Browser Test',
+                    roomId: 'lobby'
+                }
+            };
+            log('📤 Sending CONNECT: ' + JSON.stringify(connectMsg));
+            ws.send(JSON.stringify(connectMsg));
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            log('📨 Received: ' + data.type);
+            if (data.type === 'HISTORY') {
+                log('✅ HISTORY with ' + data.payload.messages.length + ' messages');
+                log('📝 Messages: ' + JSON.stringify(data.payload.messages, null, 2));
+            }
+        };
+
+        ws.onerror = (error) => log('❌ Error: ' + error);
+        ws.onclose = () => log('⚠️  Closed');
+    </script>
+</body>
+</html>

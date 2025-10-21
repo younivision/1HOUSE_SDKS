@@ -1,6 +1,6 @@
 {
   "name": "@1houseglobal/chat-react",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "React embeddable chat component for 1 HOUSE Global",
   "main": "dist/index.umd.js",
   "module": "dist/index.esm.js",
