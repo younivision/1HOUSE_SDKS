@@ -9,7 +9,7 @@ export function useWebSocket(props: LiveChatProps) {
   const typingTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   
   // Hardcoded server URL - no longer configurable
-  const serverUrl = 'wss://chat-service.1houseglobalservices.com';
+  const serverUrl = 'wss://prod.chat-service.1houseglobalservices.com';
   
   const { 
     setMessages, 
