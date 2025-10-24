@@ -1,4 +1,5 @@
 export { LiveChat } from './components/LiveChat';
+export { TwitchStream } from './components/TwitchStream';
 export { useChatStore } from './store';
 export { useWebSocket } from './hooks/useWebSocket';
 export { useImageCache } from './hooks/useImageCache';

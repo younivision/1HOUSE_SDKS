@@ -6,6 +6,7 @@ interface ChatInputProps {
   disabled?: boolean;
   theme?: 'light' | 'dark';
   customStyles?: any;
+  accentColor?: string;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({ 
@@ -14,6 +15,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   disabled,
   theme = 'dark',
   customStyles,
+  accentColor = '#8B5CF6',
 }) => {
   const [message, setMessage] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -92,7 +94,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div 
-      className={`px-4 py-3 border-t ${theme === 'dark' ? 'bg-chat-dark-header border-chat-dark-border' : 'bg-gray-50 border-gray-200'}`}
+      className={`px-4 py-4 border-t backdrop-blur-sm ${theme === 'dark' ? 'bg-gray-800/90 border-gray-700' : 'bg-white/90 border-gray-200'}`}
       style={customStyles}
     >
       {images.length > 0 && (
@@ -112,7 +114,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
       )}
       
-      <form className="flex gap-2 items-end" onSubmit={handleSubmit}>
+      <form className="flex gap-3 items-end" onSubmit={handleSubmit}>
         <input
           ref={fileInputRef}
           type="file"
@@ -124,24 +126,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         
         <button
           type="button"
-          className={`w-9 h-9 rounded flex items-center justify-center flex-shrink-0 text-lg font-sans border-0 cursor-pointer transition-all ${
+          className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 border-0 cursor-pointer transition-all duration-200 ${
             theme === 'dark' 
-              ? 'bg-chat-dark-input hover:bg-opacity-80' 
-              : 'bg-gray-100 hover:bg-gray-200'
+              ? 'bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white' 
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800'
           } ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
           title="Upload image"
         >
-          📎
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+          </svg>
         </button>
 
         <textarea
-          className={`flex-1 min-h-[36px] max-h-[120px] px-3 py-2 border rounded resize-none font-sans text-sm leading-normal ${
+          className={`flex-1 h-10 min-h-[40px] max-h-[120px] px-3 py-2.5 border-0 rounded-xl resize-none font-sans text-sm leading-normal transition-all duration-200 ${
             theme === 'dark'
-              ? 'bg-chat-dark-input text-chat-dark-text border-gray-600 focus:border-chat-primary'
-              : 'bg-white text-gray-900 border-gray-300 focus:border-blue-500'
-          } focus:outline-none`}
+              ? 'bg-gray-700/50 text-white focus:bg-gray-700/70'
+              : 'bg-gray-50 text-gray-900 focus:bg-white'
+          } focus:outline-none focus:ring-2 focus:ring-opacity-20`}
+          style={{ 
+            focusRingColor: accentColor,
+            '--tw-ring-color': accentColor + '20'
+          } as React.CSSProperties}
           value={message}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -152,14 +160,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         <button
           type="submit"
-          className={`w-9 h-9 rounded flex items-center justify-center flex-shrink-0 text-lg font-sans border-0 cursor-pointer transition-all bg-chat-primary text-white ${
+          className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 border-0 cursor-pointer transition-all duration-200 text-white ${
             disabled || (!message.trim() && images.length === 0) 
               ? 'opacity-40 cursor-not-allowed' 
-              : 'hover:bg-purple-700 hover:scale-105'
+              : 'hover:scale-105 hover:shadow-lg'
           }`}
+          style={{
+            backgroundColor: disabled || (!message.trim() && images.length === 0) ? '#6B7280' : accentColor,
+            boxShadow: disabled || (!message.trim() && images.length === 0) ? 'none' : `0 4px 12px ${accentColor}40`
+          }}
           disabled={disabled || (!message.trim() && images.length === 0)}
         >
-          🚀
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
         </button>
       </form>
     </div>

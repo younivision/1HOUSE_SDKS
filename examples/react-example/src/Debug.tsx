@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const API_KEY = import.meta.env.VITE_LIVECHAT_SDK_KEY || 'lc_3e41d2f1276acdb315f02ee60f9fc013b0da996b43942c984be6dbc7836327cb';
+const API_KEY = import.meta.env.VITE_LIVECHAT_SDK_KEY || 'lc_30c955dd7b53f5a07d2c16a70271c6eef888286b2c0984daee0054abe3262205';
 const SERVER_URL = 'http://localhost:8080';
 
 export function Debug() {

@@ -21,6 +21,23 @@ export const UserList: React.FC<UserListProps> = ({
 }) => {
   const { getCachedImage } = useImageCache();
 
+  // Generate consistent color for user based on their ID
+  const getUserColor = (userId: string) => {
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+      '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2',
+      '#A9DFBF', '#F9E79F', '#D5DBDB', '#AED6F1', '#FADBD8'
+    ];
+    
+    // Simple hash function to get consistent color for same user
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = ((hash << 5) - hash + userId.charCodeAt(i)) & 0xffffffff;
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   return (
     <div className="p-3" style={customStyles}>
       <h4 className="m-0 mb-3 text-xs font-semibold font-display uppercase tracking-wider opacity-70">
@@ -44,13 +61,16 @@ export const UserList: React.FC<UserListProps> = ({
               ) : (
                 <div 
                   className="w-full h-full flex items-center justify-center font-semibold text-[11px] font-sans text-white"
-                  style={{ backgroundColor: user.color }}
+                  style={{ backgroundColor: getUserColor(user.userId) }}
                 >
                   {user.username.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <span className="text-[13px] font-sans overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+            <span 
+              className="text-[13px] font-sans overflow-hidden text-ellipsis whitespace-nowrap flex-1"
+              style={{ color: getUserColor(user.userId) }}
+            >
               {user.username}
             </span>
             {user.role && user.role !== 'user' && (

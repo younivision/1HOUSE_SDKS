@@ -114,6 +114,7 @@ export interface WebSocketMessage {
 }
 
 export interface LiveChatProps {
+  serverUrl: string;
   apiKey: string;
   userId: string;
   username: string;
@@ -123,6 +124,7 @@ export interface LiveChatProps {
   theme?: 'light' | 'dark';
   maxHeight?: string;
   className?: string;
+  hideHeader?: boolean;
   customStyles?: {
     container?: React.CSSProperties;
     header?: React.CSSProperties;
@@ -131,6 +133,7 @@ export interface LiveChatProps {
     message?: React.CSSProperties;
     userList?: React.CSSProperties;
   };
+  accentColor?: string;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onMessage?: (message: Message) => void;

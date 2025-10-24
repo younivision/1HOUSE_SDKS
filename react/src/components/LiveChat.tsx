@@ -13,6 +13,8 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
     maxHeight = '600px',
     className = '',
     customStyles = {},
+    hideHeader = false,
+    accentColor = '#8B5CF6',
   } = props;
   const { sendMessage, sendTyping, sendReaction, reportMessage, banUser, deleteMessage } = useWebSocket(props);
   const { messages, users, isConnected, isTyping } = useChatStore();
@@ -32,22 +34,29 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
       className={`flex flex-col w-full h-full font-sans rounded-lg overflow-hidden shadow-lg ${theme === 'dark' ? 'bg-chat-dark-bg text-chat-dark-text' : 'bg-white text-gray-900'} ${className}`} 
       style={{ maxHeight, ...customStyles.container }}
     >
-      {/* Header */}
-      <div 
-        className={`flex justify-between items-center px-4 py-3 border-b ${theme === 'dark' ? 'bg-chat-dark-header border-chat-dark-border' : 'bg-gray-50 border-gray-200'}`}
-        style={customStyles.header}
-      >
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
-          <h3 className="text-base font-semibold font-display tracking-tight m-0">Live Chat</h3>
-        </div>
-        <button 
-          className={`px-3 py-1.5 rounded font-medium text-sm transition-all ${theme === 'dark' ? 'bg-chat-dark-input hover:bg-opacity-80' : 'bg-gray-100 hover:bg-gray-200'}`}
-          onClick={() => setShowUserList(!showUserList)}
+      {/* Header - conditionally rendered */}
+      {!hideHeader && (
+        <div 
+          className={`flex justify-between items-center px-4 py-3 border-b ${theme === 'dark' ? 'bg-chat-dark-header border-chat-dark-border' : 'bg-gray-50 border-gray-200'}`}
+          style={customStyles.header}
         >
-          👥 {users.length}
-        </button>
-      </div>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
+            <h3 className="text-base font-semibold font-display tracking-tight m-0">Live Chat</h3>
+          </div>
+          <button 
+            className={`px-3 py-1.5 rounded font-medium text-sm transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-chat-dark-input hover:bg-opacity-80' : 'bg-gray-100 hover:bg-gray-200'}`}
+            onClick={() => setShowUserList(!showUserList)}
+          >
+            <div className="w-4 h-4 rounded-full bg-gray-600 flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-white">
+                <path d="M16 7c0-2.21-1.79-4-4-4S8 4.79 8 7s1.79 4 4 4 4-1.79 4-4zm-4 2c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm8.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-3 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM12 13c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+              </svg>
+            </div>
+            {users.length}
+          </button>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
@@ -121,6 +130,7 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
         disabled={!isConnected}
         theme={theme}
         customStyles={customStyles.input}
+        accentColor={accentColor}
       />
     </div>
   );

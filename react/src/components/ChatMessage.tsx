@@ -34,10 +34,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [showHiddenMessage, setShowHiddenMessage] = useState(false);
   const [reportReason, setReportReason] = useState('');
 
+  // Generate consistent color for user based on their ID
+  const getUserColor = (userId: string) => {
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+      '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2',
+      '#A9DFBF', '#F9E79F', '#D5DBDB', '#AED6F1', '#FADBD8'
+    ];
+    
+    // Simple hash function to get consistent color for same user
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = ((hash << 5) - hash + userId.charCodeAt(i)) & 0xffffffff;
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const formatTime = (date: Date) => {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    }).format(date);
   };
 
   // Check if message is reported and should be hidden
@@ -97,7 +117,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           ) : (
             <div 
               className="w-full h-full flex items-center justify-center font-semibold text-sm font-sans text-white"
-              style={{ backgroundColor: message.color }}
+              style={{ backgroundColor: getUserColor(message.userId) }}
             >
               {message.username.charAt(0).toUpperCase()}
             </div>
@@ -109,7 +129,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         <div className="flex items-center gap-2 mb-1">
           <span 
             className="font-semibold text-sm font-display"
-            style={{ color: message.color }}
+            style={{ color: getUserColor(message.userId) }}
           >
             {message.username}
           </span>
@@ -293,7 +313,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             return (
               <button
                 key={reaction.emoji}
-                onClick={() => onReaction?.(message.messageId || message.id || '', reaction.emoji)}
+                onClick={() => {
+                  console.log('💝 [ChatMessage] Reaction button clicked:', message.messageId || message.id || '', reaction.emoji);
+                  onReaction?.(message.messageId || message.id || '', reaction.emoji);
+                }}
                 className={`flex items-center gap-1 px-2 py-1 rounded-xl border text-xs font-sans transition-all ${
                   userReacted
                     ? theme === 'dark'
@@ -333,16 +356,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                     : 'bg-white border-gray-200'
                 }`}
                 onClick={(e) => e.stopPropagation()}
+                style={{ 
+                  maxWidth: '200px'
+                }}
               >
-                <div className="flex gap-1">
+                <div className="flex gap-1 overflow-x-auto max-w-[200px] scrollbar-hide">
                   {QUICK_REACTIONS.map((emoji) => (
                     <button
                       key={emoji}
                       onClick={() => {
+                        console.log('💝 [ChatMessage] Reaction picker clicked:', message.messageId || message.id || '', emoji);
                         onReaction?.(message.messageId || message.id || '', emoji);
                         setShowReactionPicker(false);
                       }}
-                      className={`px-2 py-1 rounded hover:scale-125 transition-transform text-lg ${
+                      className={`px-2 py-1 rounded hover:scale-125 transition-transform text-lg flex-shrink-0 min-w-[32px] ${
                         theme === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'
                       }`}
                     >

@@ -2,9 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import { MessageTypeEnum, WebSocketMessage, LiveChatProps } from '../types';
 import { useChatStore } from '../store';
 
-// Hardcoded server URL
-const SERVER_URL = 'https://prod.chat-service.1houseglobalservices.com';
-
 export function useWebSocket(props: LiveChatProps) {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<NodeJS.Timeout>();
@@ -25,10 +22,17 @@ export function useWebSocket(props: LiveChatProps) {
   const connect = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
 
+    // Clean up existing connection
+    if (ws.current) {
+      ws.current.close();
+      ws.current = null;
+    }
+
     try {
       // Add API key as query parameter
-      const url = new URL(SERVER_URL);
+      const url = new URL(props.serverUrl);
       url.searchParams.set('apiKey', props.apiKey);
+      console.log('🔗 [LiveChat] Connecting to:', url.toString());
       ws.current = new WebSocket(url.toString());
 
       ws.current.onopen = () => {
@@ -79,12 +83,13 @@ export function useWebSocket(props: LiveChatProps) {
       };
 
       ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ [LiveChat] WebSocket error:', error);
+        setConnected(false);
         props.onError?.('Connection error');
       };
 
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.current.onclose = (event) => {
+        console.log('🔌 [LiveChat] WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
         setConnected(false);
         props.onDisconnect?.();
         
@@ -92,17 +97,19 @@ export function useWebSocket(props: LiveChatProps) {
           clearInterval(pingInterval.current);
         }
 
-        // Attempt reconnection
-        reconnectTimeout.current = setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          connect();
-        }, 3000);
+        // Only attempt reconnection if it wasn't a manual disconnect
+        if (event.code !== 1000) {
+          reconnectTimeout.current = setTimeout(() => {
+            console.log('🔄 [LiveChat] Attempting to reconnect...');
+            connect();
+          }, 3000);
+        }
       };
     } catch (error) {
       console.error('Error connecting to WebSocket:', error);
       props.onError?.('Failed to connect');
     }
-  }, [props, setConnected]);
+  }, [props.serverUrl, props.apiKey, props.userId, props.username, props.roomId, props.avatar, props.onConnect, props.onDisconnect, props.onError, setConnected]);
 
   const handleMessage = (message: WebSocketMessage) => {
     console.log('📨 [LiveChat] handleMessage:', message.type, message.payload);
@@ -216,7 +223,9 @@ export function useWebSocket(props: LiveChatProps) {
         
         // Find and update the message
         const currentMessages = useChatStore.getState().messages;
+        console.log('💝 [LiveChat] Current messages:', currentMessages.map(m => ({ id: m.id, messageId: m.messageId })));
         const targetMessage = currentMessages.find((m: any) => m.messageId === reactionMsgId || m.id === reactionMsgId);
+        console.log('💝 [LiveChat] Target message found:', !!targetMessage);
         
         if (targetMessage) {
           const reactions = targetMessage.reactions || [];
@@ -313,6 +322,8 @@ export function useWebSocket(props: LiveChatProps) {
   }, [send]);
 
   const disconnect = useCallback(() => {
+    console.log('🔌 [LiveChat] Disconnecting WebSocket...');
+    
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
     }
@@ -324,15 +335,18 @@ export function useWebSocket(props: LiveChatProps) {
     typingTimeouts.current.clear();
     
     if (ws.current) {
-      ws.current.close();
+      ws.current.close(1000, 'Manual disconnect'); // Normal closure
       ws.current = null;
     }
-  }, []);
+    setConnected(false);
+  }, [setConnected]);
 
   useEffect(() => {
     connect();
-    return () => disconnect();
-  }, [connect, disconnect]);
+    return () => {
+      disconnect();
+    };
+  }, [props.serverUrl, props.apiKey]); // Only reconnect if server URL or API key changes
 
   return {
     sendMessage,
