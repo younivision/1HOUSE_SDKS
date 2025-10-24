@@ -5,7 +5,6 @@ import { useChatStore } from '../store';
 export interface TwitchStreamProps {
   // LiveChat props
   apiKey: string;
-  serverUrl: string;
   userId: string;
   username: string;
   roomId: string;
@@ -78,7 +77,6 @@ export interface TwitchStreamProps {
 export const TwitchStream: React.FC<TwitchStreamProps> = ({
   // LiveChat props
   apiKey,
-  serverUrl,
   userId,
   username,
   roomId,
@@ -691,7 +689,6 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
             <div className="flex-1 overflow-hidden bg-gray-900 min-h-0 h-full flex flex-col">
               <LiveChat
                 apiKey={apiKey}
-                serverUrl={serverUrl}
                 userId={userId}
                 username={username}
                 roomId={roomId}

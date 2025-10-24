@@ -8,6 +8,9 @@ export function useWebSocket(props: LiveChatProps) {
   const pingInterval = useRef<NodeJS.Timeout>();
   const typingTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   
+  // Hardcoded server URL - no longer configurable
+  const serverUrl = 'wss://chat-service.1houseglobalservices.com';
+  
   const { 
     setMessages, 
     setUsers, 
@@ -30,7 +33,7 @@ export function useWebSocket(props: LiveChatProps) {
 
     try {
       // Add API key as query parameter
-      const url = new URL(props.serverUrl);
+      const url = new URL(serverUrl);
       url.searchParams.set('apiKey', props.apiKey);
       console.log('🔗 [LiveChat] Connecting to:', url.toString());
       ws.current = new WebSocket(url.toString());
@@ -109,7 +112,7 @@ export function useWebSocket(props: LiveChatProps) {
       console.error('Error connecting to WebSocket:', error);
       props.onError?.('Failed to connect');
     }
-  }, [props.serverUrl, props.apiKey, props.userId, props.username, props.roomId, props.avatar, props.onConnect, props.onDisconnect, props.onError, setConnected]);
+  }, [props.apiKey, props.userId, props.username, props.roomId, props.avatar, props.onConnect, props.onDisconnect, props.onError, setConnected]);
 
   const handleMessage = (message: WebSocketMessage) => {
     console.log('📨 [LiveChat] handleMessage:', message.type, message.payload);
@@ -346,7 +349,7 @@ export function useWebSocket(props: LiveChatProps) {
     return () => {
       disconnect();
     };
-  }, [props.serverUrl, props.apiKey]); // Only reconnect if server URL or API key changes
+  }, [props.apiKey]); // Only reconnect if API key changes
 
   return {
     sendMessage,

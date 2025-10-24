@@ -114,7 +114,6 @@ export interface WebSocketMessage {
 }
 
 export interface LiveChatProps {
-  serverUrl: string;
   apiKey: string;
   userId: string;
   username: string;

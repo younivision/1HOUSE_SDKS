@@ -12,7 +12,6 @@ const randomUsername = userNames[Math.floor(Math.random() * userNames.length)];
 function App() {
   const [userId] = useState(generateUserId());
   const [username] = useState(randomUsername);
-  const [serverUrl] = useState('ws://localhost:8080');
   const [role] = useState<'user' | 'moderator' | 'admin'>('admin');
   const [viewerCount, setViewerCount] = useState(Math.floor(Math.random() * 1000) + 100);
   const [showDemoLayout, setShowDemoLayout] = useState(true);
@@ -83,8 +82,7 @@ function App() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <TwitchStream
                   // LiveChat props
-                  apiKey={(import.meta as any).env.VITE_LIVECHAT_SDK_KEY || "lc_30c955dd7b53f5a07d2c16a70271c6eef888286b2c0984daee0054abe3262205"}
-                  serverUrl={serverUrl}
+                  apiKey={(import.meta as any).env.VITE_LIVECHAT_SDK_KEY || "lc_30c9....."}
                   userId={userId}
                   username={username}
                   roomId="lobby"
@@ -161,10 +159,9 @@ function App() {
   return (
     <div className="relative">
       <TwitchStream
-        // LiveChat props
-        apiKey={(import.meta as any).env.VITE_LIVECHAT_SDK_KEY || "lc_30c955dd7b53f5a07d2c16a70271c6eef888286b2c0984daee0054abe3262205"}
-        serverUrl={serverUrl}
-        userId={userId}
+                  // LiveChat props
+                  apiKey={(import.meta as any).env.VITE_LIVECHAT_SDK_KEY || "lc_30c955dd7b53f5a07d2c16a70271c6eef888286b2c0984daee0054abe3262205"}
+                  userId={userId}
         username={username}
         roomId="lobby"
         role={role}
