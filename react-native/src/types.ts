@@ -1,6 +1,6 @@
 import { ViewStyle, TextStyle } from 'react-native';
 
-export type MessageType = 'text' | 'image' | 'video' | 'gif' | 'system';
+export type MessageType = 'text' | 'image' | 'video' | 'gif' | 'system' | 'tip';
 
 export interface MediaItem {
   url: string;
@@ -38,6 +38,14 @@ export interface Message {
     reason: string;
     reportedAt: Date;
   }>;
+  tip?: {
+    amount: number;
+    recipientId: string;
+    recipientName: string;
+    senderId: string;
+    senderName: string;
+    timestamp: string;
+  };
 }
 
 export interface User {
@@ -76,6 +84,7 @@ export enum MessageTypeEnum {
   MESSAGE_EDIT = 'MESSAGE_EDIT',
   MESSAGE_DELETE = 'MESSAGE_DELETE',
   MESSAGE_REPORT = 'MESSAGE_REPORT',
+  TIP = 'TIP',
   
   // Reactions
   REACTION_ADD = 'REACTION_ADD',

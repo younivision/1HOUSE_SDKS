@@ -2,8 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { MessageTypeEnum, WebSocketMessage, LiveChatProps } from '../types';
 import { useChatStore } from '../store';
 
-// Hardcoded server URL
-const SERVER_URL = 'https://prod.chat-service.1houseglobalservices.com';
+// Hardcoded server URL - production WebSocket endpoint
+const SERVER_URL = 'wss://prod.chat-service.1houseglobalservices.com';
 
 export function useWebSocket(props: LiveChatProps) {
   const ws = useRef<WebSocket | null>(null);
@@ -26,8 +26,10 @@ export function useWebSocket(props: LiveChatProps) {
 
     try {
       // Add API key as query parameter
-      const url = `${SERVER_URL}${SERVER_URL.includes('?') ? '&' : '?'}apiKey=${props.apiKey}`;
-      ws.current = new WebSocket(url);
+      const url = new URL(SERVER_URL);
+      url.searchParams.set('apiKey', props.apiKey);
+      console.log('🔗 [LiveChat] Connecting to:', url.toString());
+      ws.current = new WebSocket(url.toString());
 
       ws.current.onopen = () => {
         console.log('WebSocket connected');
@@ -92,7 +94,9 @@ export function useWebSocket(props: LiveChatProps) {
         const { messages, users } = message.payload;
         setMessages(messages.map((m: any) => ({
           ...m,
-          timestamp: new Date(m.timestamp)
+          timestamp: new Date(m.timestamp),
+          type: m.type || 'text',
+          tip: m.tip || undefined,
         })));
         setUsers(users);
         break;
@@ -104,6 +108,16 @@ export function useWebSocket(props: LiveChatProps) {
         };
         addMessage(newMessage);
         props.onMessage?.(newMessage);
+        break;
+
+      case MessageTypeEnum.TIP:
+        const tipMessage = {
+          ...message.payload.message,
+          timestamp: new Date(message.payload.message.timestamp),
+          tip: message.payload.tip,
+        };
+        addMessage(tipMessage);
+        props.onMessage?.(tipMessage);
         break;
 
       case MessageTypeEnum.USER_JOINED:
@@ -162,6 +176,18 @@ export function useWebSocket(props: LiveChatProps) {
     });
   }, [send]);
 
+  const sendTip = useCallback((amount: number, recipientId: string, recipientName: string, message?: string) => {
+    send({
+      type: MessageTypeEnum.TIP,
+      payload: {
+        amount,
+        recipientId,
+        recipientName,
+        message: message || `Tip of ${amount} tokens`,
+      },
+    });
+  }, [send]);
+
   const reportMessage = useCallback((messageId: string, reason: string) => {
     send({
       type: MessageTypeEnum.MESSAGE_REPORT,
@@ -198,6 +224,7 @@ export function useWebSocket(props: LiveChatProps) {
     sendMessage,
     sendTyping,
     sendReaction,
+    sendTip,
     reportMessage,
     banUser,
     disconnect,

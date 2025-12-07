@@ -7,6 +7,7 @@ interface ChatHeaderProps {
   userCount: number;
   showUserList: boolean;
   onToggleUserList: () => void;
+  onTipPress?: () => void;
   theme: Theme;
 }
 
@@ -19,6 +20,7 @@ export const ChatHeader: React.FC<ChatHeaderPropsExtended> = ({
   userCount,
   showUserList,
   onToggleUserList,
+  onTipPress,
   theme,
   customStyles,
 }) => {
@@ -39,15 +41,29 @@ export const ChatHeader: React.FC<ChatHeaderPropsExtended> = ({
         </Text>
       </View>
       
-      <TouchableOpacity
-        className="px-3 py-1.5 rounded"
-        style={{ backgroundColor: theme.inputBackground }}
-        onPress={onToggleUserList}
-      >
-        <Text style={[{ color: theme.text, fontFamily: fonts.medium, fontSize: 14 }]}>
-          👥 {userCount}
-        </Text>
-      </TouchableOpacity>
+      <View className="flex-row items-center gap-2">
+        {onTipPress && (
+          <TouchableOpacity
+            className="px-3 py-1.5 rounded-full flex-row items-center"
+            style={{ backgroundColor: '#269f47' }}
+            onPress={onTipPress}
+          >
+            <Text style={{ color: 'white', fontSize: 16, marginRight: 4 }}>💚</Text>
+            <Text style={[{ color: 'white', fontFamily: fonts.semiBold, fontSize: 14 }]}>
+              Tip
+            </Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          className="px-3 py-1.5 rounded"
+          style={{ backgroundColor: theme.inputBackground }}
+          onPress={onToggleUserList}
+        >
+          <Text style={[{ color: theme.text, fontFamily: fonts.medium, fontSize: 14 }]}>
+            👥 {userCount}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

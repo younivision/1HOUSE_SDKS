@@ -11,6 +11,7 @@ import { ChatHeader } from './ChatHeader';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { UserList } from './UserList';
+import { TipModal } from './TipModal';
 import { themes } from '../styles';
 
 export const LiveChat: React.FC<LiveChatProps> = (props) => {
@@ -19,10 +20,20 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
     className = '',
     customStyles = {},
   } = props;
-  const { sendMessage, sendTyping } = useWebSocket(props);
+  const { sendMessage, sendTyping, sendTip } = useWebSocket(props);
   const { isConnected, users } = useChatStore();
   const [showUserList, setShowUserList] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
   const currentTheme = themes[theme];
+  
+  // Get recipient info - for now, use the first user in the room (or a default)
+  // In a real app, this would be the streamer/host
+  const recipientId = users.length > 0 ? users[0].userId : undefined;
+  const recipientName = users.length > 0 ? users[0].username : 'Streamer';
+  
+  const handleSendTip = (amount: number, recipientId: string, recipientName: string) => {
+    sendTip(amount, recipientId, recipientName);
+  };
 
   return (
     <KeyboardAvoidingView
@@ -36,6 +47,7 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
         userCount={users.length}
         showUserList={showUserList}
         onToggleUserList={() => setShowUserList(!showUserList)}
+        onTipPress={() => setShowTipModal(true)}
         theme={currentTheme}
         customStyles={customStyles.header}
       />
@@ -61,6 +73,15 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
         disabled={!isConnected}
         theme={currentTheme}
         customStyles={customStyles.input}
+      />
+      
+      <TipModal
+        visible={showTipModal}
+        onClose={() => setShowTipModal(false)}
+        onSendTip={handleSendTip}
+        recipientId={recipientId}
+        recipientName={recipientName}
+        theme={currentTheme}
       />
     </KeyboardAvoidingView>
   );

@@ -10,6 +10,8 @@ export default defineConfig({
       insertTypesEntry: true,
     }),
   ],
+  // Dev mode: serve as app
+  // Build mode: build as library
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
@@ -26,6 +28,9 @@ export default defineConfig({
         },
       },
     },
+  },
+  server: {
+    port: 5173,
   },
 });
 

@@ -1,4 +1,4 @@
-export type MessageType = 'text' | 'image' | 'video' | 'gif' | 'system';
+export type MessageType = 'text' | 'image' | 'video' | 'gif' | 'system' | 'tip';
 
 export interface MediaItem {
   url: string;
@@ -16,6 +16,7 @@ export interface Reaction {
 }
 
 export interface Message {
+  _id?: string;
   id: string;
   messageId: string;
   userId: string;
@@ -38,6 +39,14 @@ export interface Message {
     reason: string;
     reportedAt: Date;
   }>;
+  tip?: {
+    amount: number;
+    recipientId: string;
+    recipientName: string;
+    senderId: string;
+    senderName: string;
+    timestamp: string;
+  };
 }
 
 export interface User {
@@ -77,6 +86,7 @@ export enum MessageTypeEnum {
   MESSAGE_DELETE = 'MESSAGE_DELETE',
   MESSAGE_REPORT = 'MESSAGE_REPORT',
   MESSAGE_REPORTED = 'MESSAGE_REPORTED', // Broadcast when message is reported
+  TIP = 'TIP',
   
   // Reactions
   REACTION_ADD = 'REACTION_ADD',
@@ -145,6 +155,16 @@ export interface LiveChatProps {
     apiKey: string;
     cacheDuration?: number; // in milliseconds
     enabled?: boolean;
+  };
+  // Wallet functionality
+  walletBalance?: number; // Current wallet balance in tokens
+  onFundWallet?: () => void; // Callback when user wants to fund wallet
+  // API Gateway configuration for tips and wallet
+  apiGateway?: {
+    baseUrl?: string; // API Gateway base URL (default: https://api-gateway.dev.1houseglobalservices.com)
+    apiKey?: string; // API Gateway API key for x-api-key header
+    getWalletBalance?: (userId: string) => Promise<number>; // Custom function to fetch wallet balance
+    getBearerToken?: (userId: string, roomId: string, username: string) => Promise<string | null>; // Custom function to get bearer token, or uses default endpoint
   };
 }
 

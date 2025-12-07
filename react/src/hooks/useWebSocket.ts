@@ -22,8 +22,9 @@ export function useWebSocket(props: LiveChatProps) {
     clearTyping
   } = useChatStore();
 
-  const connect = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) return;
+  const connect = useCallback((forceReconnect = false) => {
+    // If already connected and not forcing reconnect, skip
+    if (ws.current?.readyState === WebSocket.OPEN && !forceReconnect) return;
 
     // Clean up existing connection
     if (ws.current) {
@@ -56,10 +57,10 @@ export function useWebSocket(props: LiveChatProps) {
                 avatar: props.avatar,
               },
             };
-            console.log('🚀 [LiveChat] Sending CONNECT:', connectMsg);
+            console.log('🚀 [LiveChat] Sending CONNECT with username:', props.username, connectMsg);
             console.log('🚀 [LiveChat] WebSocket before send:', ws.current);
             ws.current.send(JSON.stringify(connectMsg));
-            console.log('✅ [LiveChat] CONNECT sent successfully!');
+            console.log('✅ [LiveChat] CONNECT sent successfully with username:', props.username);
           } else {
             console.error('❌ [LiveChat] WebSocket not OPEN when trying to send CONNECT. State:', ws.current?.readyState);
           }
@@ -123,12 +124,31 @@ export function useWebSocket(props: LiveChatProps) {
         
         if (messages && messages.length > 0) {
           console.log('📚 [LiveChat] First message:', messages[0]);
-          const processedMessages = messages.map((m: any) => ({
-            ...m,
-            id: m.id || m.messageId || m._id,
-            messageId: m.messageId || m._id,
-            timestamp: new Date(m.timestamp || m.createdAt || Date.now())
-          }));
+          const processedMessages = messages.map((m: any) => {
+            // Check if this is actually a tip message - tip must exist AND have amount
+            const hasValidTip = m.tip && typeof m.tip === 'object' && (m.tip.amount !== undefined && m.tip.amount !== null);
+            const processed = {
+              ...m,
+              id: m.id || m.messageId || m._id,
+              messageId: m.messageId || m._id,
+              timestamp: new Date(m.timestamp || m.createdAt || Date.now()),
+              type: m.type || (hasValidTip ? 'tip' : 'text'), // Set type to 'tip' only if valid tip data exists
+              tip: hasValidTip ? m.tip : undefined,
+            };
+            // Ensure type is 'tip' if valid tip data exists
+            if (hasValidTip && processed.type !== 'tip') {
+              console.log('💚 [LiveChat] Found tip in history, setting type to tip:', processed);
+              processed.type = 'tip';
+            }
+            if (processed.type === 'tip') {
+              console.log('💚 [LiveChat] Tip message found in history:', {
+                type: processed.type,
+                hasTip: !!processed.tip,
+                tipAmount: processed.tip?.amount,
+              });
+            }
+            return processed;
+          });
           console.log('📚 [LiveChat] Setting', processedMessages.length, 'messages in store');
           setMessages(processedMessages);
           console.log('✅ [LiveChat] Messages set successfully');
@@ -146,12 +166,38 @@ export function useWebSocket(props: LiveChatProps) {
         break;
 
       case MessageTypeEnum.MESSAGE:
+        const tipData = message.payload.message?.tip || message.payload.tip;
+        // Check if this is actually a tip message - tip must exist AND have amount
+        const hasValidTip = tipData && typeof tipData === 'object' && (tipData.amount !== undefined && tipData.amount !== null);
         const newMessage = {
           ...message.payload.message,
-          timestamp: new Date(message.payload.message.timestamp)
+          id: message.payload.message?.id || message.payload.message?.messageId || message.payload.message?._id || `msg-${Date.now()}-${Math.random()}`,
+          messageId: message.payload.message?.messageId || message.payload.message?._id || message.payload.message?.id || `msg-${Date.now()}-${Math.random()}`,
+          timestamp: new Date(message.payload.message.timestamp),
+          type: message.payload.message?.type || (hasValidTip ? 'tip' : 'text'), // Set type based on valid tip
+          tip: hasValidTip ? tipData : undefined, // Only include tip if valid
         };
+        // Ensure type is 'tip' if valid tip data exists
+        if (hasValidTip && newMessage.type !== 'tip') {
+          console.log('💚 [LiveChat] Tip message received via MESSAGE handler:', newMessage);
+          newMessage.type = 'tip'; // Ensure type is set to 'tip'
+        }
         addMessage(newMessage);
         props.onMessage?.(newMessage);
+        break;
+
+      case MessageTypeEnum.TIP:
+        const tipMessage = {
+          ...message.payload.message,
+          id: message.payload.message?.id || message.payload.message?.messageId || message.payload.message?._id || `tip-${Date.now()}-${Math.random()}`,
+          messageId: message.payload.message?.messageId || message.payload.message?._id || message.payload.message?.id || `tip-${Date.now()}-${Math.random()}`,
+          timestamp: new Date(message.payload.message.timestamp),
+          type: 'tip' as const, // Explicitly set type to 'tip'
+          tip: message.payload.tip || message.payload.message?.tip,
+        };
+        console.log('💚 [LiveChat] TIP message received:', tipMessage);
+        addMessage(tipMessage);
+        props.onMessage?.(tipMessage);
         break;
 
       case MessageTypeEnum.USER_JOINED:
@@ -324,6 +370,19 @@ export function useWebSocket(props: LiveChatProps) {
     });
   }, [send]);
 
+  const sendTip = useCallback((amount: number, recipientId: string, recipientName: string, message?: string) => {
+    console.log('💚 [LiveChat] Sending tip:', amount, 'to', recipientName);
+    send({
+      type: MessageTypeEnum.TIP,
+      payload: {
+        amount,
+        recipientId,
+        recipientName,
+        message: message || `Tip of ${amount} tokens`,
+      },
+    });
+  }, [send]);
+
   const disconnect = useCallback(() => {
     console.log('🔌 [LiveChat] Disconnecting WebSocket...');
     
@@ -345,21 +404,30 @@ export function useWebSocket(props: LiveChatProps) {
   }, [setConnected]);
 
   useEffect(() => {
+    console.log('🔄 [LiveChat] useWebSocket useEffect triggered:', {
+      apiKey: props.apiKey,
+      userId: props.userId,
+      username: props.username,
+      roomId: props.roomId,
+    });
     connect();
     return () => {
+      console.log('🔄 [LiveChat] useWebSocket cleanup - disconnecting');
       disconnect();
     };
-  }, [props.apiKey]); // Only reconnect if API key changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.apiKey, props.userId, props.username, props.roomId]); // Reconnect if any of these change
 
   return {
     sendMessage,
     sendTyping,
     sendReaction,
+    sendTip,
     reportMessage,
     banUser,
     deleteMessage,
     disconnect,
-    reconnect: connect,
+    reconnect: () => connect(true), // Force reconnect
   };
 }
 

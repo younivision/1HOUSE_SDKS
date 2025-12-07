@@ -9,9 +9,28 @@ export const useChatStore = create<ChatStore>((set) => ({
   isTyping: new Map(),
 
   addMessage: (message: Message) =>
-    set((state) => ({
+    set((state) => {
+      // Check if message already exists to prevent duplicates
+      const messageId = message.id || message.messageId || message._id;
+      if (!messageId) {
+        console.warn('⚠️ [Store] Message missing ID, cannot add:', message);
+        return state;
+      }
+      
+      // Check if message with this ID already exists
+      const exists = state.messages.some(
+        (msg: any) => (msg.id === messageId || msg.messageId === messageId || msg._id === messageId)
+      );
+      
+      if (exists) {
+        console.log('⚠️ [Store] Message already exists, skipping duplicate:', messageId);
+        return state;
+      }
+      
+      return {
       messages: [...state.messages, message],
-    })),
+      };
+    }),
 
   updateMessage: (messageId: string, updates: Partial<Message>) =>
     set((state) => ({

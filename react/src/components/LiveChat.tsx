@@ -5,6 +5,7 @@ import { useChatStore } from '../store';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { UserList } from './UserList';
+import { TipModal } from './TipModal';
 import '../styles.css';
 
 export const LiveChat: React.FC<LiveChatProps> = (props) => {
@@ -16,10 +17,20 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
     hideHeader = false,
     accentColor = '#8B5CF6',
   } = props;
-  const { sendMessage, sendTyping, sendReaction, reportMessage, banUser, deleteMessage } = useWebSocket(props);
+  const { sendMessage, sendTyping, sendReaction, sendTip, reportMessage, banUser, deleteMessage } = useWebSocket(props);
   const { messages, users, isConnected, isTyping } = useChatStore();
   const [showUserList, setShowUserList] = useState(false);
+  const [showTipModal, setShowTipModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Get recipient info - for now, use the first user in the room (or a default)
+  // In a real app, this would be the streamer/host
+  const recipientId = users.length > 0 ? users[0].userId : undefined;
+  const recipientName = users.length > 0 ? users[0].username : 'Streamer';
+  
+  const handleSendTip = (amount: number, recipientId: string, recipientName: string) => {
+    sendTip(amount, recipientId, recipientName);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,10 +55,18 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
             <h3 className="text-base font-semibold font-display tracking-tight m-0">Live Chat</h3>
           </div>
-          <button 
-            className={`px-3 py-1.5 rounded font-medium text-sm transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-chat-dark-input hover:bg-opacity-80' : 'bg-gray-100 hover:bg-gray-200'}`}
-            onClick={() => setShowUserList(!showUserList)}
-          >
+          <div className="flex items-center gap-2">
+            <button 
+              className="px-3 py-1.5 rounded-full font-semibold text-sm transition-all flex items-center gap-2 bg-[#269f47] hover:bg-[#13712d] text-white"
+              onClick={() => setShowTipModal(true)}
+            >
+              <span>💚</span>
+              <span>Tip</span>
+            </button>
+            <button 
+              className={`px-3 py-1.5 rounded font-medium text-sm transition-all flex items-center gap-2 ${theme === 'dark' ? 'bg-chat-dark-input hover:bg-opacity-80' : 'bg-gray-100 hover:bg-gray-200'}`}
+              onClick={() => setShowUserList(!showUserList)}
+            >
             <div className="w-4 h-4 rounded-full bg-gray-600 flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-white">
                 <path d="M16 7c0-2.21-1.79-4-4-4S8 4.79 8 7s1.79 4 4 4 4-1.79 4-4zm-4 2c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm8.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-3 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM12 13c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
@@ -55,6 +74,7 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
             </div>
             {users.length}
           </button>
+          </div>
         </div>
       )}
 
@@ -70,9 +90,12 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
               <p className="font-sans">No messages yet. Start the conversation! 💬</p>
             </div>
           )}
-          {messages.map((message) => (
+          {messages.map((message) => {
+            // Use messageId or id as key, ensuring uniqueness
+            const messageKey = message.messageId || message.id || (message as any)._id || `msg-${Date.now()}-${Math.random()}`;
+            return (
             <ChatMessage 
-              key={message.id} 
+                key={messageKey} 
               message={message} 
               isOwn={message.userId === props.userId}
               theme={theme}
@@ -83,7 +106,8 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
               currentUserId={props.userId}
               isAdmin={props.role === 'admin' || props.role === 'moderator'}
             />
-          ))}
+            );
+          })}
           
           {/* Typing Indicator */}
           {Array.from(isTyping.entries()).filter(([userId]) => userId !== props.userId).length > 0 && (
@@ -131,6 +155,17 @@ export const LiveChat: React.FC<LiveChatProps> = (props) => {
         theme={theme}
         customStyles={customStyles.input}
         accentColor={accentColor}
+      />
+      
+      <TipModal
+        visible={showTipModal}
+        onClose={() => setShowTipModal(false)}
+        onSendTip={handleSendTip}
+        recipientId={recipientId}
+        recipientName={recipientName}
+        theme={theme}
+        walletBalance={props.walletBalance}
+        onFundWallet={props.onFundWallet}
       />
     </div>
   );

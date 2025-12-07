@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Message } from '../types';
 import { useImageCache } from '../hooks/useImageCache';
 
@@ -33,6 +33,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showHiddenMessage, setShowHiddenMessage] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const isTip = message.type === 'tip';
+  
+  // Debug logging for tip messages
+  useEffect(() => {
+    if (isTip) {
+      console.log('[ChatMessage] Rendering tip message:', {
+        type: message.type,
+        hasTip: !!message.tip,
+        tipAmount: message.tip?.amount,
+        messageId: message.id || message.messageId,
+      });
+    }
+  }, [isTip, message]);
 
   // Generate consistent color for user based on their ID
   const getUserColor = (userId: string) => {
@@ -95,8 +108,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   return (
     <div 
-      className={`group flex gap-3 px-3 py-2 rounded transition-colors ${
-        isReported && !isHidden
+      className={`group flex gap-3 px-3 py-3 rounded-lg transition-colors ${
+        isTip
+          ? theme === 'dark'
+            ? 'bg-[#269f47]/10 border border-[#269f47]/30'
+            : 'bg-green-50 border border-green-200'
+          : isReported && !isHidden
           ? theme === 'dark' 
             ? 'bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/15' 
             : 'bg-yellow-50 border border-yellow-300 hover:bg-yellow-100'
@@ -107,7 +124,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       style={customStyles}
     >
       {!isOwn && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden">
+        <div className={`flex-shrink-0 ${isTip ? 'w-10 h-10' : 'w-8 h-8'} rounded-full overflow-hidden`}>
           {message.avatar ? (
             <img 
               src={getCachedImage(message.avatar)} 
@@ -117,22 +134,32 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           ) : (
             <div 
               className="w-full h-full flex items-center justify-center font-semibold text-sm font-sans text-white"
-              style={{ backgroundColor: getUserColor(message.userId) }}
+              style={{ backgroundColor: isTip ? '#269f47' : getUserColor(message.userId) }}
             >
-              {message.username.charAt(0).toUpperCase()}
+              {isTip ? (
+                <span className="text-lg">💚</span>
+              ) : (
+                message.username.charAt(0).toUpperCase()
+              )}
             </div>
           )}
         </div>
       )}
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span 
-            className="font-semibold text-sm font-display"
-            style={{ color: getUserColor(message.userId) }}
+            className={`font-semibold text-sm font-display ${isTip ? 'text-[#269f47] font-bold' : ''}`}
+            style={!isTip ? { color: getUserColor(message.userId) } : undefined}
           >
             {message.username}
           </span>
+          {isTip && message.tip && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#269f47]/20">
+              <span className="text-xs">💚</span>
+              <span className="text-xs font-bold text-[#269f47]">{message.tip.amount} tokens</span>
+            </div>
+          )}
           <span className="text-xs font-sans opacity-50">
             {formatTime(message.timestamp)}
           </span>
@@ -270,9 +297,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </div>
         )}
         
-        <div className="text-sm font-sans leading-normal break-words">
+        <div className={`text-sm font-sans leading-normal break-words ${isTip ? 'font-medium' : ''}`}>
           {message.content}
         </div>
+        
+        {isTip && message.tip && (
+          <p className="text-xs text-[#269f47] mt-2 opacity-80">
+            💚 Tip to {message.tip.recipientName}
+          </p>
+        )}
 
         {message.media && message.media.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
@@ -304,7 +337,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </div>
         )}
 
-        {/* Reactions - Only add margin if reactions exist OR on hover */}
+        {/* Reactions - Disabled for tip messages */}
+        {!isTip && (
         <div className={`flex flex-wrap gap-1 items-center relative ${
           message.reactions && message.reactions.length > 0 ? 'mt-2' : 'mt-0 group-hover:mt-2'
         } transition-all`}>
@@ -381,6 +415,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ export { UserAvatar } from './components/UserAvatar';
 export { Username } from './components/Username';
 export * from './types';
 
-// Import styles (includes Tailwind)
+// Import styles (includes Tailwind and component styles)
 import './index.css';
+import './styles.css';
 

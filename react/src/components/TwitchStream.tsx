@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LiveChat } from './LiveChat';
+import { TipModal } from './TipModal';
 import { useChatStore } from '../store';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export interface TwitchStreamProps {
   // LiveChat props
   apiKey: string;
-  userId: string;
+  userId: string; // User ID for embedded scenarios - used for wallet balance and tip API calls
   username: string;
   roomId: string;
   role?: 'user' | 'moderator' | 'admin';
@@ -18,6 +20,7 @@ export interface TwitchStreamProps {
   // Twitch-style props
   streamTitle: string;
   streamerName: string;
+  hostId?: string; // Host/Streamer user ID - used as recipient for tip API calls
   viewerCount?: number;
   isLive?: boolean;
   
@@ -46,6 +49,17 @@ export interface TwitchStreamProps {
   // Typography props
   titleFontSize?: string;
   detailsFontSize?: string;
+  
+  // Wallet functionality
+  walletBalance?: number; // Current wallet balance in tokens
+  onFundWallet?: () => void; // Callback when user wants to fund wallet
+  // API Gateway configuration for tips and wallet
+  apiGateway?: {
+    baseUrl?: string; // API Gateway base URL (default: https://api-gateway.dev.1houseglobalservices.com)
+    apiKey?: string; // API Gateway API key for x-api-key header
+    getWalletBalance?: (userId: string) => Promise<number>; // Custom function to fetch wallet balance
+    getBearerToken?: (userId: string, roomId: string, username: string) => Promise<string | null>; // Custom function to get bearer token, or uses default endpoint
+  };
   streamerNameFontSize?: string;
   
   // Chat props
@@ -90,6 +104,7 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
   // Twitch-style props
   streamTitle,
   streamerName,
+  hostId,
   viewerCount = 0,
   isLive = true,
   
@@ -144,6 +159,12 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
   maxHeight,
   resizable = false,
   containerStyle = {},
+  
+  // Wallet functionality
+  walletBalance: initialWalletBalance = 0,
+  onFundWallet,
+  // API Gateway configuration
+  apiGateway,
 }) => {
   const [isChatVisible, setIsChatVisible] = useState(true);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -158,11 +179,381 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
     isVisible: boolean;
   }>>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(initialNotificationsEnabled);
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [currentWalletBalance, setCurrentWalletBalance] = useState(initialWalletBalance);
+  const [bearerToken, setBearerToken] = useState<string | null>(null);
+  const [fetchedUsername, setFetchedUsername] = useState<string | null>(null); // Username fetched from API
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullscreenRef = useRef<HTMLDivElement>(null);
   
   // Get chat state for connection indicator and user count
   const { users, isConnected } = useChatStore();
+  
+  // Use fetched username if available, otherwise use prop username
+  // Prioritize fetched username from API over prop username
+  const effectiveUsername = fetchedUsername || username;
+  
+  // Log when username changes for debugging
+  useEffect(() => {
+    if (fetchedUsername) {
+      console.log('👤 [TwitchStream] Username updated:', {
+        oldUsername: username,
+        fetchedUsername: fetchedUsername,
+        effectiveUsername: effectiveUsername,
+      });
+    }
+  }, [fetchedUsername, username, effectiveUsername]);
+  
+  // Get WebSocket functions for tip functionality
+  // Note: useWebSocket will automatically reconnect when effectiveUsername changes
+  // because it's passed as the username prop and the hook's useEffect depends on props.username
+  const { sendTip: sendTipWebSocket } = useWebSocket({
+    apiKey,
+    userId,
+    username: effectiveUsername, // Use fetched username if available, prioritizing API data
+    roomId,
+    role,
+    onConnect,
+    onDisconnect,
+    onMessage,
+    onError,
+  });
+  
+  // Get recipient info for tips (streamer)
+  const recipientId = hostId;
+  const recipientName = streamerName || 'Streamer';
+  
+  // Fetch bearer token for API authentication
+  const fetchBearerToken = async () => {
+    if (!apiGateway) return null;
+    
+    try {
+      if (apiGateway.getBearerToken) {
+        // Use custom function if provided
+        const token = await apiGateway.getBearerToken(userId, roomId, username);
+        console.log('🔑 [TwitchStream] Bearer token fetched (custom function):', token ? 'Token received' : 'No token');
+        setBearerToken(token);
+        return token;
+      } else {
+        // Default API call to get bearer token
+        const baseUrl = apiGateway.baseUrl || 'https://api-gateway.dev.1houseglobalservices.com';
+        const requestBody = {
+          userId,
+          roomId,
+          username,
+        };
+        console.log('🔑 [TwitchStream] Fetching bearer token:', { baseUrl, endpoint: '/v1/auth/token', requestBody });
+        
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        
+        // Add x-api-key header if provided
+        if (apiGateway.apiKey) {
+          headers['x-api-key'] = apiGateway.apiKey;
+        }
+        
+        const response = await fetch(`${baseUrl}/v1/auth/token`, {
+          method: 'POST',
+          headers,
+          credentials: 'omit',
+          body: JSON.stringify(requestBody),
+        });
+        
+        console.log('🔑 [TwitchStream] Bearer token response status:', response.status, response.statusText);
+        
+        if (response.ok) {
+          const responseData = await response.json();
+          console.log('🔑 [TwitchStream] Bearer token response data:', responseData);
+          // Extract token from response - could be data.token or data.data.token
+          const token = responseData.data?.token || responseData.data?.accessToken || responseData.data?.bearerToken || 
+                        responseData.token || responseData.accessToken || responseData.bearerToken;
+          if (token) {
+            console.log('🔑 [TwitchStream] Bearer token set successfully');
+            setBearerToken(token);
+            return token;
+          } else {
+            console.warn('🔑 [TwitchStream] No token found in response data:', responseData);
+          }
+        } else {
+          const errorText = await response.text();
+          console.error('🔑 [TwitchStream] Failed to fetch bearer token:', response.status, errorText);
+        }
+      }
+    } catch (error) {
+      console.error('🔑 [TwitchStream] Error fetching bearer token:', error);
+    }
+    return null;
+  };
+  
+  // Fetch user info from API Gateway
+  const fetchUserInfo = async () => {
+    if (!apiGateway || !userId) return;
+    
+    try {
+      // Ensure we have a bearer token first
+      let token = bearerToken;
+      if (!token) {
+        token = await fetchBearerToken();
+        if (!token) {
+          console.warn('🔑 [TwitchStream] No bearer token available, cannot fetch user info');
+          return;
+        }
+      }
+      
+      const baseUrl = apiGateway.baseUrl || 'https://api-gateway.dev.1houseglobalservices.com';
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
+      // Add x-api-key header if provided
+      if (apiGateway.apiKey) {
+        headers['x-api-key'] = apiGateway.apiKey;
+      }
+      
+      // Add bearer token
+      headers['Authorization'] = `Bearer ${token}`;
+      
+      console.log('👤 [TwitchStream] Fetching user info for userId:', userId);
+      
+      const response = await fetch(`${baseUrl}/v1/user/${userId}`, {
+        method: 'GET',
+        headers,
+        credentials: 'omit',
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('👤 [TwitchStream] User info response:', responseData);
+        
+        // Extract user data - could be data.data or data
+        const userData = responseData.data?.data || responseData.data || responseData;
+        
+        // Prioritize firstName + lastName, then username, then email prefix
+        const fetchedName = userData.firstName 
+          ? `${userData.firstName}${userData.lastName ? ' ' + userData.lastName : ''}`.trim()
+          : userData.username || userData.email?.split('@')[0] || null;
+        
+        if (fetchedName) {
+          console.log('👤 [TwitchStream] Fetched username:', fetchedName);
+          setFetchedUsername(fetchedName);
+        } else {
+          console.warn('👤 [TwitchStream] No username found in user data');
+        }
+      } else if (response.status === 401 && !bearerToken) {
+        // If unauthorized and no token, try to get token and retry
+        const newToken = await fetchBearerToken();
+        if (newToken) {
+          // Retry with new token
+          return fetchUserInfo();
+        }
+      } else {
+        const errorText = await response.text();
+        console.warn('👤 [TwitchStream] Failed to fetch user info:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('👤 [TwitchStream] Error fetching user info:', error);
+    }
+  };
+  
+  // Fetch wallet balance from API
+  const fetchWalletBalance = async () => {
+    if (!apiGateway) return;
+    
+    try {
+      if (apiGateway.getWalletBalance) {
+        // Use custom function if provided
+        const balance = await apiGateway.getWalletBalance(userId);
+        setCurrentWalletBalance(balance);
+      } else {
+        // Default API call to fetch wallet balance
+        const baseUrl = apiGateway.baseUrl || 'https://api-gateway.dev.1houseglobalservices.com';
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        
+        // Add x-api-key header if provided
+        if (apiGateway.apiKey) {
+          headers['x-api-key'] = apiGateway.apiKey;
+        }
+        
+        // Add bearer token if available
+        if (bearerToken) {
+          headers['Authorization'] = `Bearer ${bearerToken}`;
+        }
+        
+        const response = await fetch(`${baseUrl}/v1/wallets/balance/${userId}`, {
+          method: 'GET',
+          headers,
+          credentials: 'omit',
+        });
+        
+        if (response.ok) {
+          const responseData = await response.json();
+          console.log('💚 [TwitchStream] Wallet balance response:', responseData);
+          // Extract balance from response - could be data.balance or data.data.balance
+          const balance = responseData.data?.balance ?? responseData.balance ?? 0;
+          console.log('💚 [TwitchStream] Extracted balance:', balance);
+          setCurrentWalletBalance(balance);
+        } else if (response.status === 401 && !bearerToken) {
+          // If unauthorized and no token, try to get token and retry
+          const token = await fetchBearerToken();
+          if (token) {
+            // Retry with token
+            return fetchWalletBalance();
+          }
+        }
+      }
+    } catch (error) {
+      // Silently handle wallet balance fetch errors
+    }
+  };
+  
+  // Send tip to API Gateway
+  const sendTipToAPI = async (amount: number, recipientId: string, recipientName: string) => {
+    if (!apiGateway) return false;
+    
+    try {
+      // Ensure bearer token is available before making the request
+      let token = bearerToken;
+      if (!token) {
+        console.log('💚 [TwitchStream] No bearer token available, fetching token first...');
+        token = await fetchBearerToken();
+        if (!token) {
+          console.error('💚 [TwitchStream] Failed to fetch bearer token, cannot send tip');
+          return false;
+        }
+      }
+      
+      const baseUrl = apiGateway.baseUrl || 'https://api-gateway.dev.1houseglobalservices.com';
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      
+      // Add x-api-key header if provided
+      if (apiGateway.apiKey) {
+        headers['x-api-key'] = apiGateway.apiKey;
+      }
+      
+      // Add bearer token (should always be available at this point)
+      headers['Authorization'] = `Bearer ${token}`;
+      
+      const requestBody = {
+        recipientId,
+        recipientName,
+        amount,
+        roomId,
+      };
+      
+      console.log('💚 [TwitchStream] Sending tip via API:', { baseUrl, endpoint: '/v1/wallets/tip', requestBody, hasToken: !!token });
+      
+      const response = await fetch(`${baseUrl}/v1/wallets/tip`, {
+        method: 'POST',
+        headers,
+        credentials: 'omit',
+        body: JSON.stringify(requestBody),
+      });
+      
+      console.log('💚 [TwitchStream] Tip response status:', response.status, response.statusText);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('💚 [TwitchStream] Tip sent successfully via API:', data);
+        // Refresh wallet balance after sending tip
+        await fetchWalletBalance();
+        return true;
+      } else if (response.status === 401) {
+        // If unauthorized, token might be expired - try to refresh and retry once
+        console.warn('💚 [TwitchStream] Unauthorized, token may be expired. Fetching new token and retrying...');
+        const newToken = await fetchBearerToken();
+        if (newToken && newToken !== token) {
+          // Retry with new token
+          console.log('💚 [TwitchStream] Retrying tip with new token...');
+          return sendTipToAPI(amount, recipientId, recipientName);
+        }
+        const errorText = await response.text();
+        console.error('💚 [TwitchStream] Failed to send tip via API after token refresh:', errorText);
+        return false;
+      } else {
+        const errorText = await response.text();
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { message: errorText, status: response.status };
+        }
+        console.error('💚 [TwitchStream] Failed to send tip via API:', error);
+        return false;
+      }
+    } catch (error) {
+      console.error('💚 [TwitchStream] Error sending tip to API:', error);
+      return false;
+    }
+  };
+  
+  const handleSendTip = async (amount: number, recipientId: string, recipientName: string) => {
+    console.log('💚 [TwitchStream] handleSendTip called:', { amount, recipientId, recipientName });
+    
+    // Validate hostId is available
+    if (!hostId) {
+      console.error('💚 [TwitchStream] Cannot send tip: hostId is not provided');
+      return;
+    }
+    
+    // Send tip via API Gateway if configured
+    if (apiGateway) {
+      const apiSuccess = await sendTipToAPI(amount, recipientId, recipientName);
+      console.log('💚 [TwitchStream] API tip result:', apiSuccess ? 'Success' : 'Failed');
+      
+      // Only send WebSocket message if API call succeeded
+      if (apiSuccess) {
+        console.log('💚 [TwitchStream] Sending tip via WebSocket');
+        sendTipWebSocket(amount, recipientId, recipientName);
+        setShowTipModal(false);
+      } else {
+        console.error('💚 [TwitchStream] API tip failed, not sending WebSocket message');
+        // Don't close modal on failure so user can retry
+      }
+    } else {
+      // If no API Gateway configured, send via WebSocket only
+      console.log('💚 [TwitchStream] No API Gateway, sending tip via WebSocket only');
+      sendTipWebSocket(amount, recipientId, recipientName);
+      setShowTipModal(false);
+    }
+  };
+  
+  // Fetch bearer token on mount and when userId/roomId changes
+  useEffect(() => {
+    if (apiGateway && userId && roomId && username) {
+      fetchBearerToken();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, roomId, username, apiGateway?.baseUrl]);
+  
+  // Fetch user info after bearer token is available
+  useEffect(() => {
+    if (apiGateway && userId && bearerToken) {
+      fetchUserInfo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, bearerToken, apiGateway?.baseUrl]);
+  
+  // Fetch wallet balance on mount and when userId, apiGateway, or bearerToken changes
+  useEffect(() => {
+    if (apiGateway && userId) {
+      fetchWalletBalance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, apiGateway?.baseUrl, bearerToken]);
+  
+  // Update wallet balance when prop changes
+  useEffect(() => {
+    setCurrentWalletBalance(initialWalletBalance);
+  }, [initialWalletBalance]);
   
   // Use chatroom participants as default viewer count if not provided
   // Make it reactive to changes in users array
@@ -186,7 +577,6 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
 
   // Notification management
   const addNotification = (message: string) => {
-    console.log('🔔 [TwitchStream] addNotification called with:', message);
     const id = Date.now().toString();
     const newNotification = {
       id,
@@ -195,16 +585,13 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
       isVisible: true,
     };
     
-    console.log('🔔 [TwitchStream] Adding notification:', newNotification);
     setNotifications(prev => {
       const updated = [...prev, newNotification];
-      console.log('🔔 [TwitchStream] Notifications updated:', updated.length, 'total');
       return updated;
     });
     
     // Auto-hide after specified duration
     const hideTimeout = setTimeout(() => {
-      console.log('🔔 [TwitchStream] Auto-hiding notification:', id);
       setNotifications(prev => 
         prev.map(notif => 
           notif.id === id ? { ...notif, isVisible: false } : notif
@@ -213,7 +600,6 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
       
       // Remove from array after animation
       const removeTimeout = setTimeout(() => {
-        console.log('🔔 [TwitchStream] Removing notification:', id);
         setNotifications(prev => prev.filter(notif => notif.id !== id));
       }, 500); // Increased animation time
       
@@ -226,7 +612,6 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
   };
 
   const removeNotification = (id: string) => {
-    console.log('🔔 [TwitchStream] Manually removing notification:', id);
     setNotifications(prev => 
       prev.map(notif => 
         notif.id === id ? { ...notif, isVisible: false } : notif
@@ -235,7 +620,6 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
     
     // Remove from array after animation
     setTimeout(() => {
-      console.log('🔔 [TwitchStream] Removing notification from array:', id);
       setNotifications(prev => prev.filter(notif => notif.id !== id));
     }, 500);
   };
@@ -244,7 +628,9 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
   // Auto-play video
   useEffect(() => {
     if (videoRef.current && autoPlay) {
-      videoRef.current.play().catch(console.error);
+      videoRef.current.play().catch(() => {
+        // Silently handle play errors
+      });
     }
   }, [autoPlay]);
 
@@ -260,7 +646,12 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
       );
       
       newUsers.forEach(user => {
-        if (user.username && user.username !== username && notificationsEnabled) {
+        // Check if user is current user - compare by userId if available, otherwise by username
+        const isOwnUser = user.userId 
+          ? user.userId === userId 
+          : user.username === username || user.username === effectiveUsername;
+        
+        if (user.username && !isOwnUser && notificationsEnabled) {
           addNotification(`${user.username} joined the stream!`);
         }
       });
@@ -274,19 +665,17 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
         !previousMessages.some(prevMessage => prevMessage.id === message.id)
       );
       
-      console.log('🔔 [TwitchStream] Checking for new messages:', newMessages.length, 'new messages');
-      
       newMessages.forEach(message => {
-        console.log('🔔 [TwitchStream] New message:', message.username, message.content);
-        
         // Skip history messages (messages older than 5 seconds are likely history)
         const messageAge = Date.now() - new Date(message.timestamp).getTime();
         const isRecentMessage = messageAge < 5000; // 5 seconds
         
-        console.log('🔔 [TwitchStream] Message age:', messageAge, 'isRecent:', isRecentMessage);
+        // Check if message is from current user - compare by userId if available, otherwise by username
+        const isOwnMessage = message.userId 
+          ? message.userId === userId 
+          : message.username === username || message.username === effectiveUsername;
         
-        if (message.username && message.content && message.username !== username && isRecentMessage && notificationsEnabled) {
-          console.log('🔔 [TwitchStream] Adding notification for:', message.username);
+        if (message.username && message.content && !isOwnMessage && isRecentMessage && notificationsEnabled) {
           // Truncate long messages
           const truncatedContent = message.content.length > 50 
             ? message.content.substring(0, 50) + '...' 
@@ -305,7 +694,7 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isChatVisible, username]);
+  }, [isChatVisible, username, effectiveUsername, userId]);
 
   // Track container size changes
   useEffect(() => {
@@ -364,7 +753,7 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
         }
       }
     } catch (error) {
-      console.error('Fullscreen error:', error);
+      // Silently handle fullscreen errors
     }
   };
 
@@ -549,6 +938,21 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
         {showChatToggle && (
           <div className="flex items-center gap-3">
             <button 
+              className="px-4 py-2 rounded-full font-semibold text-sm transition-all flex items-center gap-2 bg-[#269f47] hover:bg-[#13712d] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!hostId}
+              onClick={() => {
+                if (!hostId) return;
+                // Refresh wallet balance when opening tip modal
+                if (apiGateway && userId) {
+                  fetchWalletBalance();
+                }
+                setShowTipModal(true);
+              }}
+            >
+              <span>💚</span>
+              <span>Tip</span>
+            </button>
+            <button 
               className="px-4 py-2 rounded cursor-pointer font-medium transition-all duration-200 bg-gray-600 text-gray-100 text-base hover:bg-gray-500 flex items-center gap-2"
               onClick={toggleChat}
             >
@@ -706,6 +1110,19 @@ export const TwitchStream: React.FC<TwitchStreamProps> = ({
           </div>
         )}
       </div>
+      
+      {/* Tip Modal */}
+      <TipModal
+        visible={showTipModal}
+        onClose={() => setShowTipModal(false)}
+        onSendTip={handleSendTip}
+        recipientId={recipientId}
+        recipientName={recipientName}
+        theme={theme}
+        variant="twitch"
+        walletBalance={currentWalletBalance}
+        onFundWallet={onFundWallet}
+      />
     </div>
   );
 };
